@@ -1,0 +1,115 @@
+!@encoding CP1252
+model FalconDieCasting
+uses "mmxprs"; !gain access to the Xpress-Optimizer solver
+
+declarations
+	NUMMACHINES = 5
+	NUMPARTS = 5
+	NUMWEEKS = 2
+	MACHINERANGE = 1..NUMMACHINES 	!j
+	PARTRANGE = 1..NUMPARTS	!i
+	u: real !maximum regular time per week
+	v: real !maximum overtime per week
+	
+	b: array(PARTRANGE) of real !demand for each part
+	s: array(PARTRANGE, MACHINERANGE) of real !setup time for producing each part on each machine
+	y: array(PARTRANGE) of real !percentage yield of useable parts for each part
+	r: array(PARTRANGE, MACHINERANGE) of real !production rate of each part on each machine, needs to be initialised and then * by yield
+	
+	M: array(PARTRANGE, MACHINERANGE) of real !big M, max amount P could be
+	
+	!DECISION VARIABLES
+	P: array(PARTRANGE,MACHINERANGE) of mpvar !amount produced of each part on each machine
+	X: array(PARTRANGE, MACHINERANGE) of mpvar !binary, machine used to make part
+	O: array(MACHINERANGE) of mpvar	!Overtime for each machine
+	
+	!OBJECTIVE FUNCTION
+	LargestHours:mpvar !Question 2: Largest number of hours for one machine
+
+
+	!CONSTRAINTS
+	TimeCS: array(MACHINERANGE) of linctr
+	DemandCS: array(PARTRANGE) of linctr
+	MCS: array(PARTRANGE, MACHINERANGE) of linctr
+	OCS: array(MACHINERANGE) of linctr
+	OMCS: array(MACHINERANGE) of linctr
+	
+end-declarations
+	!initialise all constants/variables
+	u := 120.0 !maximum regular time per week
+	v := 48.0 !maximum overtime per week
+	
+	b :: [	3500,	3000,	4000,	4000,	2800] !demand for each part
+			
+ 	s :: [	8,		10,		999,	999,	999,!setup time for producing each part on each machine
+ 			999,	8,		10,		8,		999,
+ 			999,	999,	999,	12,		999,
+ 			8,		999,	999,	999,	8,
+ 			999,	999,	24,		999,	20]
+ 	
+ 	r :: [ 	40.0, 	35.0, 	0.0, 	0.0, 	0.0, !production rate initial values
+ 			0.0, 	25.0,	30.0, 	35.0, 	0.0,
+ 			0.0, 	0.0, 	0.0,	50.0, 	0.0,
+ 			60.0, 	0.0, 	0.0, 	0.0,	60.0,
+ 			0.0, 	0.0, 	45.0, 	0.0,	50.0]
+ 	
+ 	y :: [0.6,	0.55, 0.75, 0.65, 0.6] 
+	
+	!initial calculations, set to binary or integer
+	forall(j1 in 1..NUMMACHINES) do
+		forall(i1 in 1..NUMPARTS) do
+			P(i1,j1) is_integer 	!make P, amount produced an integer vlaue
+			X(i1,j1) is_binary	!make X, whether or not started
+			r(i1,j1) := r(i1,j1)*y(i1)	!calculate r, taking into account yield of each machines
+			M(i1,j1) := r(i1,j1)*(u + v - s(i1,j1))
+		end-do
+	end-do
+	
+	!TIME CONSTRAINTS
+	forall(j3 in 1..NUMMACHINES) do
+		!timetaken(j3) := sum(i3 in 1..NUMPARTS) (P(i3,j3)/r(i3,j3) + X(i3,j3)*s(i3,j3))
+		TimeCS(j3) := sum(i3 in PARTRANGE | r(i3,j3)>0) (P(i3,j3)/r(i3,j3) + X(i3,j3)*s(i3,j3)) <=  u + O(j3) 
+		!writeln("Time Constraint(",j3, ") is:", TimeCS(j3) )
+	end-do
+	
+	!DEMAND CONSTRAINTS
+	forall(i4 in 1..NUMPARTS) do
+		!DemandCS(i4) :=	sum(j4 in 1..NUMMACHINES) P(i4,j4) >= b(1, i4) !demand CS for 1st week
+		DemandCS(i4) :=	(sum(j4 in 1..NUMMACHINES) P(i4,j4)) >= b(i4) !demand CS for 2nd week
+	end-do
+	
+	!BIG M CONSTRAINTS
+	forall(i5 in PARTRANGE) do
+		forall(j5 in MACHINERANGE) do
+			MCS(i5,j5) := P(i5,j5) <= M(i5,j5)*X(i5,j5)
+		end-do
+	end-do
+	
+	!MAX OVERTIME CONSTRAINT
+	forall(j6 in MACHINERANGE) do
+		OCS(j6) := O(j6) <= v
+	end-do
+	
+	!MAX MACHINE OVERTIME CONSTRAINT Objective for Question 2
+	forall(j7 in MACHINERANGE) do
+		OMCS(j7) := O(j7) <= LargestHours
+	end-do
+	
+minimise(LargestHours)	!Question 2
+writeln("Question 2 Objective is Overtime Maximum = ", getsol(LargestHours))
+write("Overtime Hours: ")
+forall(j8 in MACHINERANGE) do
+	write(getsol(O(j8)))
+	write(", ")
+end-do
+writeln
+forall (i in 1..NUMMACHINES) do
+	forall (j in 1..NUMPARTS) do
+		write(getsol(P(i,j)))
+		write(", ")
+	end-do
+	writeln
+end-do
+	
+
+end-model
