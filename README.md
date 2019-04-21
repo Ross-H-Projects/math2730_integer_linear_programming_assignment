@@ -5,7 +5,7 @@ This is a collection of integer linear programs (ILP) formulated to provide solu
 To see how and why the ILP solutions were created. I.e. rationality behind choice of variables, decision variables, objective function and constraints see **MATH2730 Group Project Report.pdf** .
 
 ##### Note
-This was originally created for a  group project in a **operations research** course undertaken at university in 2018 for a group project.
+This was originally created for a  group project in a **operations research** course undertaken at university in 2018.
 
 ### Requirements:
 FICO Xpress IVE (We used version 8.4).
